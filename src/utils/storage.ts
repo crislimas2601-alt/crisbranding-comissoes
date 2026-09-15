@@ -1,6 +1,6 @@
 import { ContractDeal, Installment, FinancialStats, MonthlyForecastItem } from '../types';
 
-const STORAGE_KEY = 'corretor_comissoes_deals_v1';
+const STORAGE_KEY = 'torre_sul_comissoes_deals_v2';
 
 export const INITIAL_SAMPLE_DEALS: ContractDeal[] = [
   {
@@ -275,8 +275,8 @@ export function loadDeals(): ContractDeal[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw === null) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SAMPLE_DEALS));
-      return INITIAL_SAMPLE_DEALS;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+      return [];
     }
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
@@ -289,6 +289,58 @@ export function loadDeals(): ContractDeal[] {
         const createdAt = String(deal?.createdAt || new Date().toISOString());
         const updatedAt = String(deal?.updatedAt || new Date().toISOString());
 
+        const netComm = Number(deal?.brokerNetCommission) || 0;
+        const bonusAmt = Number(deal?.bonusAmount) || 0;
+        const totalReceivable = Number(deal?.totalBrokerReceivable) || (netComm + bonusAmt);
+
+        let parsedInstallments: Installment[] = Array.isArray(deal?.installments)
+          ? deal.installments.map((inst: any, instIdx: number) => ({
+              id: String(inst?.id || `inst-${index}-${instIdx}-${Date.now()}`),
+              dealId: String(inst?.dealId || dealId),
+              dealTitle: String(inst?.dealTitle || dealTitle),
+              installmentNumber: Number(inst?.installmentNumber) || instIdx + 1,
+              totalInstallments: Number(inst?.totalInstallments) || 1,
+              title: String(inst?.title || `Parcela ${instIdx + 1}`),
+              amount: Number(inst?.amount) || 0,
+              dueDate: String(inst?.dueDate || deal?.contractDate || '2026-09-10'),
+              receivedDate: inst?.receivedDate ? String(inst.receivedDate) : undefined,
+              status: (inst?.status === 'recebido' ? 'recebido' : 'pendente') as InstallmentStatus,
+              isBonus: Boolean(inst?.isBonus),
+              notes: inst?.notes ? String(inst.notes) : undefined,
+            }))
+          : [];
+
+        // If no installments existed, synthesize standard installment
+        if (parsedInstallments.length === 0 && (netComm > 0 || bonusAmt > 0)) {
+          if (netComm > 0) {
+            parsedInstallments.push({
+              id: `inst-${dealId}-1`,
+              dealId,
+              dealTitle,
+              installmentNumber: 1,
+              totalInstallments: bonusAmt > 0 ? 2 : 1,
+              title: 'Comissão de Venda',
+              amount: netComm,
+              dueDate: String(deal?.contractDate || '2026-09-10'),
+              status: (deal?.status === 'concluido' ? 'recebido' : 'pendente') as InstallmentStatus,
+            });
+          }
+          if (bonusAmt > 0) {
+            parsedInstallments.push({
+              id: `inst-${dealId}-bonus`,
+              dealId,
+              dealTitle,
+              installmentNumber: parsedInstallments.length + 1,
+              totalInstallments: parsedInstallments.length + 1,
+              title: deal?.bonusDescription ? `Bônus: ${deal.bonusDescription}` : 'Bônus / Premiação',
+              amount: bonusAmt,
+              dueDate: String(deal?.contractDate || '2026-09-10'),
+              status: 'pendente' as InstallmentStatus,
+              isBonus: true,
+            });
+          }
+        }
+
         return {
           id: dealId,
           propertyTitle: dealTitle,
@@ -297,10 +349,10 @@ export function loadDeals(): ContractDeal[] {
           grossCommissionPercent: grossPercent,
           grossCommissionValue,
           brokerSplitPercent: Number(deal?.brokerSplitPercent) || 100,
-          brokerNetCommission: Number(deal?.brokerNetCommission) || 0,
-          bonusAmount: Number(deal?.bonusAmount) || 0,
+          brokerNetCommission: netComm,
+          bonusAmount: bonusAmt,
           bonusDescription: deal?.bonusDescription ? String(deal.bonusDescription) : undefined,
-          totalBrokerReceivable: Number(deal?.totalBrokerReceivable) || 0,
+          totalBrokerReceivable: totalReceivable,
           developerOrAgency: deal?.developerOrAgency ? String(deal.developerOrAgency) : 'Autônomo',
           clientName: deal?.clientName ? String(deal.clientName) : '',
           clientPhone: deal?.clientPhone ? String(deal.clientPhone) : undefined,
@@ -309,22 +361,7 @@ export function loadDeals(): ContractDeal[] {
           notes: deal?.notes ? String(deal.notes) : undefined,
           createdAt,
           updatedAt,
-          installments: Array.isArray(deal?.installments)
-            ? deal.installments.map((inst: any, instIdx: number) => ({
-                id: String(inst?.id || `inst-${index}-${instIdx}-${Date.now()}`),
-                dealId: String(inst?.dealId || dealId),
-                dealTitle: String(inst?.dealTitle || dealTitle),
-                installmentNumber: Number(inst?.installmentNumber) || instIdx + 1,
-                totalInstallments: Number(inst?.totalInstallments) || 1,
-                title: String(inst?.title || `Parcela ${instIdx + 1}`),
-                amount: Number(inst?.amount) || 0,
-                dueDate: String(inst?.dueDate || '2026-09-10'),
-                receivedDate: inst?.receivedDate ? String(inst.receivedDate) : undefined,
-                status: inst?.status === 'recebido' ? 'recebido' : 'pendente',
-                isBonus: Boolean(inst?.isBonus),
-                notes: inst?.notes ? String(inst.notes) : undefined,
-              }))
-            : [],
+          installments: parsedInstallments,
         };
       });
     }
@@ -397,13 +434,12 @@ export function calculateFinancialStats(deals: ContractDeal[], currentDateStr: s
     }
   });
 
-  // Build 8-month timeline starting from current month (e.g. 2026-09 to 2027-04)
-  // Plus previous month (2026-08) to show historical received
+  // Build 14-month timeline: 1 month back, current month, and 12 months forward
   const [currY, currM] = currentYearMonth.split('-').map(Number);
   const monthKeys: string[] = [];
 
-  // Start 1 month back, and go 6 months forward
-  for (let offset = -1; offset <= 6; offset++) {
+  // Start 1 month back (-1) and go up to 12 months forward
+  for (let offset = -1; offset <= 12; offset++) {
     const d = new Date(currY, (currM || 9) - 1 + offset, 1);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');

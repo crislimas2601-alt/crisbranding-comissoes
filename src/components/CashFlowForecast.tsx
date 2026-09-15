@@ -245,115 +245,138 @@ export const CashFlowForecast: React.FC<CashFlowForecastProps> = ({
             </div>
           </div>
         ) : (
-          /* Detailed Month-by-Month List */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {forecast.map((month) => {
+          /* Detailed Month-by-Month Spreadsheet-like List (Planilha Executiva Limpa) */
+          <div className="space-y-6">
+            {forecast.filter(m => m.installments.length > 0 || m.isCurrentMonth).map((month) => {
               const isSelected = selectedMonthFilter === month.monthKey;
               return (
                 <div
                   key={month.monthKey}
-                  className={`rounded-xl border p-4 transition-all ${
+                  className={`rounded-xl border overflow-hidden transition-all ${
                     isSelected
-                      ? 'border-blue-500 ring-2 ring-blue-100 bg-blue-50/20'
+                      ? 'border-red-500 ring-2 ring-red-100 bg-white shadow-xs'
                       : month.isCurrentMonth
-                      ? 'border-blue-300 bg-slate-50/60'
-                      : 'border-slate-200 bg-white hover:border-slate-300'
+                      ? 'border-slate-300 bg-white shadow-xs'
+                      : 'border-slate-200 bg-white'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-slate-900 text-sm font-heading">
+                  {/* Month Header Row */}
+                  <div className="bg-slate-50/80 px-4 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${month.isCurrentMonth ? 'bg-red-600 animate-pulse' : 'bg-slate-400'}`} />
+                      <h3 className="font-bold text-slate-900 text-sm font-heading">
                         {month.fullLabel}
-                      </span>
+                      </h3>
                       {month.isCurrentMonth && (
-                        <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                          Atual
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200">
+                          Mês Atual
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => onSelectMonthFilter?.(isSelected ? null : month.monthKey)}
-                      className="text-xs text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
-                    >
-                      {isSelected ? 'Limpar' : 'Filtrar'}
-                    </button>
-                  </div>
 
-                  {/* Summary of this month */}
-                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-lg bg-slate-50 mb-3 border border-slate-100 text-xs">
-                    <div>
-                      <span className="text-slate-500 block text-[11px]">Previsto:</span>
-                      <span className="font-bold text-blue-700">
-                        {formatCurrency(month.projectedAmount)}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block text-[11px]">Já Recebido:</span>
-                      <span className="font-bold text-emerald-700">
-                        {formatCurrency(month.receivedAmount)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Installments in this month */}
-                  <div className="space-y-2">
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                      Parcelas deste mês ({month.installments.length})
-                    </span>
-
-                    {month.installments.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic py-2 text-center">
-                        Nenhuma comissão agendada
-                      </p>
-                    ) : (
-                      month.installments.map((inst) => (
-                        <div
-                          key={inst.id}
-                          className={`p-2.5 rounded-lg border text-xs flex items-center justify-between gap-2 transition-all ${
-                            inst.status === 'recebido'
-                              ? 'bg-emerald-50/50 border-emerald-200'
-                              : 'bg-white border-slate-200'
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              {inst.isBonus && (
-                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">
-                                  BÔNUS
-                                </span>
-                              )}
-                              <span className="font-semibold text-slate-800 truncate block">
-                                {inst.dealTitle}
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-slate-500 truncate flex items-center gap-2 mt-0.5">
-                              <span>{inst.title}</span>
-                              <span>•</span>
-                              <span>Venc: {formatDateBR(inst.dueDate)}</span>
-                            </div>
-                            <div className="font-bold text-slate-900 mt-1">
-                              {formatCurrency(inst.amount)}
-                            </div>
-                          </div>
-
-                          {/* Quick Toggle Button */}
-                          <button
-                            id={`btn-toggle-${inst.id}`}
-                            onClick={() => handleMarkAsReceived(inst.dealId, inst.id)}
-                            title={inst.status === 'recebido' ? 'Marcar como Pendente' : 'Marcar como Recebido (Entrou na Conta)'}
-                            className={`p-1.5 rounded-lg cursor-pointer transition-colors shrink-0 ${
-                              inst.status === 'recebido'
-                                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                : 'bg-slate-100 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 border border-slate-200'
-                            }`}
-                          >
-                            <CheckCircle2 className="w-4 h-4" />
-                          </button>
+                    <div className="flex items-center gap-4 text-xs">
+                      <div>
+                        <span className="text-slate-500 font-medium">A Receber: </span>
+                        <strong className="text-slate-900 font-semibold">{formatCurrency(month.projectedAmount)}</strong>
+                      </div>
+                      {month.receivedAmount > 0 && (
+                        <div className="border-l border-slate-200 pl-3">
+                          <span className="text-slate-500 font-medium">Já Recebido: </span>
+                          <strong className="text-emerald-700 font-semibold">{formatCurrency(month.receivedAmount)}</strong>
                         </div>
-                      ))
-                    )}
+                      )}
+                      <button
+                        onClick={() => onSelectMonthFilter?.(isSelected ? null : month.monthKey)}
+                        className={`text-xs px-2 py-1 rounded transition cursor-pointer font-medium ${
+                          isSelected ? 'bg-red-50 text-red-700' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200/50'
+                        }`}
+                      >
+                        {isSelected ? 'Limpar Filtro' : 'Filtrar'}
+                      </button>
+                    </div>
                   </div>
 
+                  {/* Spreadsheet table rows */}
+                  {month.installments.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-400 italic">
+                      Nenhuma comissão agendada para este mês
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-100 text-[11px] font-semibold text-slate-500 bg-white uppercase tracking-wider">
+                            <th className="py-2.5 px-4">Data Vencimento</th>
+                            <th className="py-2.5 px-4">Imóvel / Contrato</th>
+                            <th className="py-2.5 px-4">Parcela</th>
+                            <th className="py-2.5 px-4 text-right">Valor da Parcela</th>
+                            <th className="py-2.5 px-4 text-center">Status</th>
+                            <th className="py-2.5 px-4 text-right">Ação</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {month.installments.map((inst) => {
+                            const isPaid = inst.status === 'recebido';
+                            return (
+                              <tr 
+                                key={inst.id}
+                                className={`hover:bg-slate-50/70 transition-colors ${
+                                  isPaid ? 'bg-emerald-50/20' : ''
+                                }`}
+                              >
+                                <td className="py-3 px-4 whitespace-nowrap font-medium text-slate-700">
+                                  {formatDateBR(inst.dueDate)}
+                                </td>
+                                <td className="py-3 px-4 font-semibold text-slate-900">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="truncate max-w-xs">{inst.dealTitle}</span>
+                                    {inst.isBonus && (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                                        BÔNUS
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4 text-slate-600">
+                                  {inst.title}
+                                </td>
+                                <td className="py-3 px-4 text-right font-bold text-slate-900 whitespace-nowrap font-heading text-sm">
+                                  {formatCurrency(inst.amount)}
+                                </td>
+                                <td className="py-3 px-4 text-center whitespace-nowrap">
+                                  {isPaid ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      Recebido
+                                      {inst.receivedDate && <span className="text-[10px] text-emerald-600/70">({formatDateBR(inst.receivedDate)})</span>}
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                                      <Clock className="w-3 h-3 text-blue-600" />
+                                      Previsto
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4 text-right whitespace-nowrap">
+                                  <button
+                                    id={`btn-spreadsheet-toggle-${inst.id}`}
+                                    onClick={() => handleMarkAsReceived(inst.dealId, inst.id)}
+                                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                                      isPaid
+                                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
+                                        : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
+                                    }`}
+                                  >
+                                    {isPaid ? 'Desmarcar' : 'Confirmar Recebimento'}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               );
             })}

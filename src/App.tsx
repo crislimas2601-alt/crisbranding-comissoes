@@ -257,7 +257,6 @@ export default function App() {
         }}
         deals={deals}
         onImportDeals={handleImportDeals}
-        onResetToSample={handleResetToSample}
         onClearAll={handleClearAll}
         onExportCsv={handleExportCsv}
         activeTab={activeTab}
@@ -273,8 +272,10 @@ export default function App() {
             <section aria-label="Métricas Principais">
               <MetricCards 
                 stats={stats} 
+                monthlyForecast={monthlyForecast}
                 onFilterPending={() => setSelectedMonthFilter(null)}
                 onFilterReceived={() => setSelectedMonthFilter(null)}
+                onSelectMonth={(mKey) => setSelectedMonthFilter(mKey)}
               />
             </section>
 

@@ -273,14 +273,14 @@ export const DatabaseView: React.FC<DatabaseViewProps> = ({
     switch (status) {
       case 'concluido':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
             Quitado
           </span>
         );
       case 'distrato':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-red-50 text-red-700 border border-red-200">
             <AlertCircle className="w-3 h-3 text-red-600" />
             Distrato
           </span>
@@ -288,8 +288,8 @@ export const DatabaseView: React.FC<DatabaseViewProps> = ({
       case 'em_andamento':
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-            <Clock className="w-3 h-3 text-amber-600" />
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+            <Clock className="w-3 h-3 text-blue-600" />
             Em Andamento
           </span>
         );
@@ -681,19 +681,20 @@ export const DatabaseView: React.FC<DatabaseViewProps> = ({
               
               {/* Table Head */}
               <thead>
-                <tr className="bg-slate-900 text-white font-semibold uppercase tracking-wider text-[11px] border-b border-slate-800">
-                  <th className="py-3.5 px-3 w-10 text-center">#</th>
-                  <th className="py-3.5 px-3">Data</th>
-                  <th className="py-3.5 px-3">Imóvel & Construtora</th>
-                  <th className="py-3.5 px-3">Cliente Comprador</th>
-                  <th className="py-3.5 px-3 text-right">VGV Imóvel</th>
-                  <th className="py-3.5 px-3 text-right">% Com.</th>
-                  <th className="py-3.5 px-3 text-right">Comissão Líquida</th>
-                  <th className="py-3.5 px-3 text-right">Bônus</th>
-                  <th className="py-3.5 px-4 text-right">Total Recebível</th>
-                  <th className="py-3.5 px-3 text-center">Progresso</th>
-                  <th className="py-3.5 px-3 text-center">Status</th>
-                  <th className="py-3.5 px-4 text-center">Ações</th>
+                <tr className="bg-slate-100/90 text-slate-600 font-semibold uppercase tracking-wider text-[11px] border-b border-slate-200">
+                  <th className="py-3 px-3 w-10 text-center">#</th>
+                  <th className="py-3 px-3">Data Contrato</th>
+                  <th className="py-3 px-3">Imóvel & Construtora</th>
+                  <th className="py-3 px-3">Cliente Comprador</th>
+                  <th className="py-3 px-3 text-right">VGV Imóvel</th>
+                  <th className="py-3 px-3 text-right">% Com.</th>
+                  <th className="py-3 px-3 text-right">Comissão Líquida</th>
+                  <th className="py-3 px-3 text-right">Bônus</th>
+                  <th className="py-3 px-4 text-right">Total Recebível</th>
+                  <th className="py-3 px-3 text-center">Data de Recebimento</th>
+                  <th className="py-3 px-3 text-center">Progresso</th>
+                  <th className="py-3 px-3 text-center">Status</th>
+                  <th className="py-3 px-4 text-center">Ações</th>
                 </tr>
               </thead>
 
@@ -800,6 +801,44 @@ export const DatabaseView: React.FC<DatabaseViewProps> = ({
                           {formatCurrency(deal.totalBrokerReceivable)}
                         </td>
 
+                        {/* Data de Recebimento (Último recebido ou próximo agendado) */}
+                        <td className="py-3 px-3 text-center whitespace-nowrap">
+                          {(() => {
+                            const receivedInsts = deal.installments.filter(i => i.status === 'recebido' && i.receivedDate);
+                            const lastReceived = receivedInsts.length > 0 
+                              ? [...receivedInsts].sort((a, b) => (b.receivedDate || '').localeCompare(a.receivedDate || ''))[0]
+                              : null;
+                            const nextPending = deal.installments
+                              .filter(i => i.status !== 'recebido')
+                              .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
+
+                            if (lastReceived && lastReceived.receivedDate) {
+                              return (
+                                <div className="inline-flex flex-col items-center">
+                                  <span className="font-semibold text-emerald-700 text-xs">
+                                    {formatDate(lastReceived.receivedDate)}
+                                  </span>
+                                  <span className="text-[10px] text-emerald-600/70">
+                                    {receivedInsts.length === deal.installments.length ? 'Quitado' : 'Última baixa'}
+                                  </span>
+                                </div>
+                              );
+                            } else if (nextPending) {
+                              return (
+                                <div className="inline-flex flex-col items-center">
+                                  <span className="font-medium text-slate-600 text-xs">
+                                    {formatDate(nextPending.dueDate)}
+                                  </span>
+                                  <span className="text-[10px] text-blue-600">
+                                    Previsto próx.
+                                  </span>
+                                </div>
+                              );
+                            }
+                            return <span className="text-slate-400">-</span>;
+                          })()}
+                        </td>
+
                         {/* Progress */}
                         <td className="py-3 px-3 text-center whitespace-nowrap">
                           <div className="inline-flex flex-col items-center gap-1">
@@ -850,7 +889,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = ({
                       {/* Expanded Sub-table (Installments & Contract Ledger) */}
                       {isExpanded && (
                         <tr className="bg-slate-50/90 border-y border-slate-200">
-                          <td colSpan={12} className="p-4 sm:p-5">
+                          <td colSpan={13} className="p-4 sm:p-5">
                             <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
                               
                               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-2.5">
@@ -976,7 +1015,7 @@ export const DatabaseView: React.FC<DatabaseViewProps> = ({
                   <td className="py-3 px-4 text-right text-amber-400 bg-slate-800">
                     {formatCurrency(filteredSubtotals.subtotalCommission)}
                   </td>
-                  <td colSpan={3} className="py-3 px-4 text-center text-slate-300">
+                  <td colSpan={4} className="py-3 px-4 text-center text-slate-300">
                     Pago: {formatCurrency(filteredSubtotals.subtotalReceived)} | Saldo: {formatCurrency(filteredSubtotals.subtotalPending)}
                   </td>
                 </tr>
