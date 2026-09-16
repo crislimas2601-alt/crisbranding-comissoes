@@ -100,3 +100,80 @@ export function getPropertyTypeLabel(type: string): string {
   };
   return map[type] || 'Imóvel';
 }
+
+/**
+ * Formats time in months to a readable years and months string
+ */
+export function formatTimeSaved(months: number): string {
+  if (months <= 0) return '0 meses';
+  const years = Math.floor(months / 12);
+  const remMonths = months % 12;
+  if (years === 0) return `${remMonths} ${remMonths === 1 ? 'mês' : 'meses'}`;
+  if (remMonths === 0) return `${years} ${years === 1 ? 'ano' : 'anos'}`;
+  return `${years} ${years === 1 ? 'ano' : 'anos'} e ${remMonths} ${remMonths === 1 ? 'mês' : 'meses'}`;
+}
+
+/**
+ * Generates a formatted WhatsApp proposal message for mortgage amortization
+ */
+export function generateWhatsAppMessage(
+  clientName: string,
+  loan: {
+    propertyValue: number;
+    downPayment: number;
+    termMonths: number;
+    annualInterestRate: number;
+    system: string;
+  },
+  extra: {
+    oneTimeAmount: number;
+    recurringMonthlyAmount: number;
+    recurringBiAnnualFGTS: number;
+    goalType: string;
+  },
+  result: {
+    financedAmount: number;
+    standard: {
+      initialInstallment: number;
+      totalInterestPaid: number;
+      totalAmountPaid: number;
+    };
+    withAmortization: {
+      yearsToPayoff: number;
+      monthsRemaining: number;
+      installmentsEliminatedCount: number;
+      interestSaved: number;
+      initialInstallment: number;
+    };
+  }
+): string {
+  const nameGreeting = clientName && clientName.trim() ? `Olá, *${clientName.trim()}*!` : 'Olá!';
+  const originalYears = Math.floor(loan.termMonths / 12);
+  const payoffYears = result.withAmortization.yearsToPayoff;
+  const payoffMonths = result.withAmortization.monthsRemaining;
+  const eliminated = result.withAmortization.installmentsEliminatedCount;
+
+  return `🏢 *SIMULAÇÃO DE QUITAÇÃO ACELERADA - TORRESUL IMOBILIÁRIA*
+
+${nameGreeting} Segue o demonstrativo da sua simulação habitacional:
+
+💰 *DADOS DO FINANCIAMENTO (CAIXA / MCMV)*
+• Valor do Imóvel: ${formatCurrency(loan.propertyValue)}
+• Entrada: ${formatCurrency(loan.downPayment)}
+• Financiamento: ${formatCurrency(result.financedAmount)}
+• Prazo Contratual: ${loan.termMonths} meses (${originalYears} anos)
+• Sistema: ${loan.system} • Taxa: ${loan.annualInterestRate}% a.a.
+• 1ª Parcela Estimada: ${formatCurrency(result.standard.initialInstallment)}/mês
+
+🚀 *ESTRATÉGIA DE AMORTIZAÇÃO TORRESUL*
+${extra.oneTimeAmount > 0 ? `• Aporte Pontual (13º/FGTS): ${formatCurrency(extra.oneTimeAmount)}\n` : ''}${extra.recurringMonthlyAmount > 0 ? `• Aporte Mensal Extra: +${formatCurrency(extra.recurringMonthlyAmount)}/mês\n` : ''}${extra.recurringBiAnnualFGTS > 0 ? `• FGTS a cada 24 meses: ${formatCurrency(extra.recurringBiAnnualFGTS)}\n` : ''}
+🎯 *RESULTADO ALCANÇADO:*
+${extra.goalType === 'REDUCE_TERM' ? `• Novo Prazo de Quitação: *${payoffYears} anos ${payoffMonths > 0 ? `e ${payoffMonths} meses` : ''}* (em vez de ${originalYears} anos)
+• Parcelas Eliminadas do Final: *${eliminated} parcelas a menos*
+• Juros Economizados: *${formatCurrency(result.withAmortization.interestSaved)}* que você deixa de pagar ao banco!` : `• Nova Parcela Reduzida: *${formatCurrency(result.withAmortization.initialInstallment)}/mês*
+• Juros Economizados: *${formatCurrency(result.withAmortization.interestSaved)}*`}
+
+📲 *Torresul Imobiliária* • Blumenau/SC
+Consultoria Especializada MCMV`;
+}
+

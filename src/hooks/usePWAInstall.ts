@@ -10,6 +10,8 @@ export function usePWAInstall() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
 
+  const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+
   useEffect(() => {
     // Detect standalone mode (already installed or running standalone)
     const isStandalone =
@@ -41,7 +43,7 @@ export function usePWAInstall() {
     };
   }, []);
 
-  const install = async () => {
+  const install = async (): Promise<boolean> => {
     if (!deferredPrompt) return false;
     try {
       await deferredPrompt.prompt();
@@ -57,10 +59,19 @@ export function usePWAInstall() {
     return false;
   };
 
+  const openInNewTab = () => {
+    if (typeof window !== 'undefined') {
+      window.open(window.location.href, '_blank');
+    }
+  };
+
   return {
     isInstallable: !!deferredPrompt,
     isInstalled,
+    isStandalone: isInstalled,
+    isInIframe,
     isIOS,
     install,
+    openInNewTab,
   };
 }

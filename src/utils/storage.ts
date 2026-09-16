@@ -1,4 +1,4 @@
-import { ContractDeal, Installment, FinancialStats, MonthlyForecastItem } from '../types';
+import { ContractDeal, Installment, InstallmentStatus, FinancialStats, MonthlyForecastItem } from '../types';
 
 const STORAGE_KEY = 'torre_sul_comissoes_deals_v2';
 
