@@ -33,7 +33,7 @@ import { Sidebar } from './components/Sidebar';
 import { AmortizationSuite } from './components/AmortizationSuite';
 import { ProposalBackOfficeTool } from './components/ProposalBackOfficeTool';
 import { TorreSulLogo } from './components/TorresulLogo';
-import { auth, User } from './lib/firebase';
+import { auth, User, checkRedirectLogin } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { 
   saveDealsToCloud, 
@@ -72,6 +72,9 @@ export default function App() {
 
   // Monitor Google Auth state & perform cloud sync
   useEffect(() => {
+    // Check if user came back from a redirect login on mobile
+    checkRedirectLogin();
+
     let unsubscribeSnapshot: (() => void) | null = null;
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
