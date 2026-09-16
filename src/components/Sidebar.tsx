@@ -63,6 +63,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const handleSignIn = async () => {
     try {
       setIsAuthLoading(true);
+      // If we are embedded inside the preview iframe, standard popups get blocked or close immediately by cross-origin security
+      if (window.self !== window.top) {
+        // Open the app in standalone new tab where Google Auth popup works without restrictions
+        window.open(window.location.href, '_blank');
+        setIsAuthLoading(false);
+        return;
+      }
       await signInWithGoogle();
       setIsSettingsOpen(false);
     } catch (err) {
