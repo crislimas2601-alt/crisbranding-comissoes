@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db, User } from '../lib/firebase';
-import { ContractDeal } from '../types';
+import { ContractDeal, Installment } from '../types';
 
 export interface UserCloudData {
   deals: ContractDeal[];
@@ -10,73 +10,81 @@ export interface UserCloudData {
 }
 
 /**
- * Deeply sanitizes any JavaScript object or array for Firestore.
- * 1. Strips all keys whose values are `undefined`.
- * 2. Filters out any `undefined` or `null` items in arrays.
- * 3. Guarantees pure JSON-compatible primitive objects so Firestore never rejects data.
+ * Normalizes an installment to guarantee strictly valid types and zero `undefined` values.
  */
-export function sanitizeForFirestore<T>(data: T): T {
-  if (data === null || data === undefined) {
-    return null as unknown as T;
-  }
-
-  // First pass: standard JSON stringify automatically omits undefined keys in objects
-  const jsonString = JSON.stringify(data, (_key, value) => {
-    return value === undefined ? null : value;
-  });
-
-  if (!jsonString) {
-    return {} as T;
-  }
-
-  const parsed = JSON.parse(jsonString);
-
-  // Second pass: recursively clean nulls/undefined from arrays and objects
-  function clean(item: any): any {
-    if (item === null || item === undefined) {
-      return '';
-    }
-    if (Array.isArray(item)) {
-      return item
-        .filter((el) => el !== null && el !== undefined)
-        .map(clean);
-    }
-    if (typeof item === 'object' && item !== null) {
-      const result: Record<string, any> = {};
-      for (const [k, v] of Object.entries(item)) {
-        if (v !== undefined) {
-          result[k] = clean(v);
-        }
-      }
-      return result;
-    }
-    return item;
-  }
-
-  return clean(parsed);
+function normalizeInstallment(inst: any): Installment | null {
+  if (!inst || typeof inst !== 'object') return null;
+  return {
+    id: String(inst.id || `inst-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`),
+    dealId: String(inst.dealId || ''),
+    dealTitle: String(inst.dealTitle || ''),
+    installmentNumber: Number(inst.installmentNumber) || 1,
+    totalInstallments: Number(inst.totalInstallments) || 1,
+    title: String(inst.title || ''),
+    amount: Number(inst.amount) || 0,
+    dueDate: String(inst.dueDate || ''),
+    receivedDate: inst.receivedDate ? String(inst.receivedDate) : '',
+    status: (inst.status === 'recebido' || inst.status === 'atrasado' || inst.status === 'pendente') ? inst.status : 'pendente',
+    isBonus: Boolean(inst.isBonus || false),
+    notes: inst.notes ? String(inst.notes) : ''
+  };
 }
 
 /**
- * Save user deals to Firestore cloud safely
+ * Normalizes a contract deal to guarantee strictly valid types and zero `undefined` values.
+ */
+function normalizeDeal(deal: any): ContractDeal | null {
+  if (!deal || typeof deal !== 'object') return null;
+  const rawInstallments = Array.isArray(deal.installments) ? deal.installments : [];
+  const safeInstallments = rawInstallments
+    .map(normalizeInstallment)
+    .filter((item): item is Installment => item !== null);
+
+  return {
+    id: String(deal.id || `deal-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`),
+    propertyTitle: String(deal.propertyTitle || 'Imóvel'),
+    propertyType: deal.propertyType || 'apartamento',
+    clientName: String(deal.clientName || 'Cliente'),
+    clientPhone: deal.clientPhone ? String(deal.clientPhone) : '',
+    developerOrAgency: String(deal.developerOrAgency || 'Torresul Imobiliária'),
+    contractDate: String(deal.contractDate || new Date().toISOString().split('T')[0]),
+    propertyValue: Number(deal.propertyValue) || 0,
+    grossCommissionPercent: Number(deal.grossCommissionPercent) || 0,
+    grossCommissionValue: Number(deal.grossCommissionValue) || 0,
+    brokerSplitPercent: Number(deal.brokerSplitPercent) || 0,
+    brokerNetCommission: Number(deal.brokerNetCommission) || 0,
+    bonusAmount: Number(deal.bonusAmount) || 0,
+    bonusDescription: deal.bonusDescription ? String(deal.bonusDescription) : '',
+    totalBrokerReceivable: Number(deal.totalBrokerReceivable) || 0,
+    status: (deal.status === 'concluido' || deal.status === 'distrato' || deal.status === 'em_andamento') ? deal.status : 'em_andamento',
+    notes: deal.notes ? String(deal.notes) : '',
+    createdAt: String(deal.createdAt || new Date().toISOString()),
+    updatedAt: String(deal.updatedAt || new Date().toISOString()),
+    installments: safeInstallments
+  };
+}
+
+/**
+ * Save user deals to Firestore cloud safely with guaranteed primitive fields
  */
 export async function saveDealsToCloud(user: User, deals: ContractDeal[]): Promise<void> {
+  if (!user || !user.uid) return;
   try {
     const userDocRef = doc(db, 'users', user.uid);
     
-    // Ensure deals is a valid array
-    const safeDeals = Array.isArray(deals) ? deals : [];
-    
-    const rawData = {
+    // Normalize and clean all deals strictly
+    const safeDeals: ContractDeal[] = Array.isArray(deals) 
+      ? deals.map(normalizeDeal).filter((d): d is ContractDeal => d !== null) 
+      : [];
+
+    const dataToSave = {
       deals: safeDeals,
       updatedAt: new Date().toISOString(),
-      userEmail: user.email || '',
-      displayName: user.displayName || 'Corretor Torresul',
+      userEmail: String(user.email || ''),
+      displayName: String(user.displayName || 'Corretor Torresul'),
     };
     
-    // Clean all undefined values recursively to avoid Firestore invalid data errors
-    const cleanedData = sanitizeForFirestore(rawData);
-    
-    await setDoc(userDocRef, cleanedData, { merge: true });
+    await setDoc(userDocRef, dataToSave, { merge: true });
   } catch (error) {
     console.error('Erro ao sincronizar com Firestore:', error);
     throw error;
