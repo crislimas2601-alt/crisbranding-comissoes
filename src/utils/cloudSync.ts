@@ -77,14 +77,17 @@ export async function saveDealsToCloud(user: User, deals: ContractDeal[]): Promi
       ? deals.map(normalizeDeal).filter((d): d is ContractDeal => d !== null) 
       : [];
 
-    const dataToSave = {
+    const rawObject = {
       deals: safeDeals,
       updatedAt: new Date().toISOString(),
       userEmail: String(user.email || ''),
       displayName: String(user.displayName || 'Corretor Torresul'),
     };
+
+    // Serializes and deserializes pure JSON, removing any remaining undefined properties
+    const safePayload = JSON.parse(JSON.stringify(rawObject));
     
-    await setDoc(userDocRef, dataToSave, { merge: true });
+    await setDoc(userDocRef, safePayload, { merge: true });
   } catch (error) {
     console.error('Erro ao sincronizar com Firestore:', error);
     throw error;
